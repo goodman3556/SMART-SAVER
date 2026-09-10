@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Saver Budget App</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151d30;
+            --text-color: #f3f4f6;
+            --accent-color: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 450px;
+            box-sizing: border-box;
+        }
+
+        h2, h3 { text-align: center; margin-top: 0; }
+        .screen { display: none; }
+        .active { display: block; }
+
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #2d3748;
+            background-color: #1a2438;
+            color: white;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #2563eb; }
+
+        .balance-box {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+
+        .status-box {
+            background-color: #1e293b;
+            padding: 12px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .coach-alert {
+            background-color: #1e293b;
+            border-left: 4px solid var(--accent-color);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-style: italic;
+            font-size: 15px;
+        }
+
+        .ad-banner {
+            background-color: #2d3748;
+            color: #a0aec0;
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-weight: bold;
+            border: 2px dashed #4a5568;
+        }
+
+        .error-msg { color: var(--danger); text-align: center; font-size: 14px; }
+        .premium-tag {
+            background-color: var(--success);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .premium-btn {
+            background: linear-gradient(135deg, #d97706, #b45309);
+            color: white;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- SCREEN 1: LOGIN -->
+    <div id="authScreen" class="screen active">
+        <h2 id="authTitle">Set Account Password</h2>
+        <p style="text-align:center; color:#a0aec0;">Your app is locked with this password.</p>
+        <input type="password" id="passwordInput" placeholder="Enter Password">
+        <div id="authError" class="error-msg"></div>
+        <button id="authBtn" onclick="handleAuth()">Confirm</button>
+    </div>
+
+    <!-- SCREEN 2: DASHBOARD -->
+    <div id="dashboardScreen" class="screen">
+        <div class="status-box">
+            <span>🌟 Points: <strong id="pointsText">0</strong>/20</span>
+            <span id="premiumStatus">Status: Free Tier</span>
+        </div>
+
+        <button id="upgradeBtn" class="premium-btn" onclick="triggerStripeCheckout()">
+            🚀 Go Premium (<span class="currencySymbol">£</span>1/Week)
+        </button>
+        
+        <h2>Smart Saver</h2>
+        <div class="balance-box">
+            Balance: <span class="currencySymbol">£</span><span id="balanceText">0.00</span>
+        </div>
+
+        <div class="coach-alert" id="coachBox">
+            💡 Welcome back! Log an entry to get financial feedback.
+        </div>
+
+        <h3>Log Cashflow</h3>
+        <select id="typeInput" onchange="toggleCategoryOptions()">
+            <option value="earn">💰 Earn / Income</option>
+            <option value="spend">🛒 Spend / Expense</option>
+        </select>
+
+        <select id="categoryInput">
+            <option value="daily">Daily Essential (Groceries, Bus, Rent)</option>
+            <option value="luxury">Luxury / Splurge (Tech, Clothes, Takeaway)</option>
+        </select>
+
+        <input type="number" id="amountInput" placeholder="Amount" min="0.01" step="0.01">
+        <button onclick="logTransaction()">Submit Transaction</button>
+
+        <div id="adSection">
+            <div class="ad-banner" id="adBanner">[ Ad Space ]</div>
+            <button style="background-color: var(--warning); color: black;" onclick="simulateAdWatch()">
+                📺 Watch Ad (+5 Points)
+            </button>
+        </div>
+        
+        <button style="background-color: #4a5568; margin-top:20px;" onclick="logout()">Lock App</button>
+    </div>
+</div>
+
+<script>
+    let currentBalance = parseFloat(localStorage.getItem('balance')) || 0.00;
+    let points = parseInt(localStorage.getItem('points')) || 0;
+    let isPremiumUser = localStorage.getItem('isPremium') === 'true';
+    let currencySymbol = "£";
+
+    // Auto Country & Currency Scanner
+    function detectCurrency() {
+        const locale = navigator.language || "en-GB";
+        if (locale.includes("US") || locale.includes("en-US")) {
+            currencySymbol = "$";
+        } else if (locale.includes("GB") || locale.includes("en-GB")) {
+            currencySymbol = "£";
+        } else {
+            // Default European regions
+            currencySymbol = "€";
+        }
+        document.querySelectorAll('.currencySymbol').forEach(el => el.innerText = currencySymbol);
+    }
+
+    const hasPassword = localStorage.getItem('userPassword') !== null;
+    if (!hasPassword) {
+        document.getElementById('authTitle').innerText = "Create Your Password";
+        document.getElementById('authBtn').innerText = "Create Account";
+    } else {
+        document.getElementById('authTitle').innerText = "Enter Password";
+        document.getElementById('authBtn').innerText = "Unlock App";
+    }
+
+    function handleAuth() {
+        const input = document.getElementById('passwordInput').value;
+        const error = document.getElementById('authError');
+        if (!input) { error.innerText = "Password cannot be empty!"; return; }
+
+        if (!localStorage.getItem('userPassword')) {
+            localStorage.setItem('userPassword', input);
+            unlockDashboard();
+        } else {
+            if (input === localStorage.getItem('userPassword')) { unlockDashboard(); } 
+            else { error.innerText = "Incorrect password! Try again."; }
+        }
+    }
+
+    function unlockDashboard() {
+        document.getElementById('authScreen').classList.remove('active');
+        document.getElementById('dashboardScreen').classList.add('active');
+        detectCurrency();
+        updateUI();
+    }
+
+    function logout() {
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('authError').innerText = '';
+        document.getElementById('dashboardScreen').classList.remove('active');
+        document.getElementById('authScreen').classList.add('active');
+    }
+
+    function toggleCategoryOptions() {
+        const type = document.getElementById('typeInput').value;
+        document.getElementById('categoryInput').style.display = (type === 'earn') ? 'none' : 'block';
+    }
+
+    function logTransaction() {
+        const type = document.getElementById('typeInput').value;
+        const amount = parseFloat(document.getElementById('amountInput').value);
+        const category = document.getElementById('categoryInput').value;
+        const coachBox = document.getElementById('coachBox');
+
+        if (isNaN(amount) || amount <= 0) { alert("Please enter a valid amount."); return; }
+
+        if (type === 'earn') {
+            currentBalance += amount;
+            coachBox.innerText = `📈 You earned ${currencySymbol}${amount.toFixed(2)}! Brilliant choice.`;
+            coachBox.style.borderLeftColor = 'var(--success)';
+        } else {
+            currentBalance -= amount;
+            if (amount > 100) {
+                coachBox.innerText = `⚠️ Whoa! You just spent ${currencySymbol}${amount.toFixed(2)}. Are you completely sure that was a good choice?`;
+                coachBox.style.borderLeftColor = 'var(--danger)';
+            } else if (category === 'daily') {
+                coachBox.innerText = `✅ Nice choice. Essential items keep your everyday path clear.`;
+                coachBox.style.borderLeftColor = 'var(--success)';
+            } else if (category === 'luxury') {
+                coachBox.innerText = `🛍️ You spent ${currencySymbol}${amount.toFixed(2)} on non-essentials. That's better than dropping a massive layout, but keep monitoring it!`;
+                coachBox.style.borderLeftColor = 'var(--warning)';
+            }
+        }
+
+        localStorage.setItem('balance', currentBalance);
+        document.getElementById('amountInput').value = '';
+        updateUI();
+    }
+
+    function simulateAdWatch() {
