@@ -105,7 +105,7 @@
             border: 2px dashed #4a5568;
         }
 
-        .error-msg { color: var(--danger); text-align: center; font-size: 14px; }
+        .error-msg { color: var(--danger); text-align: center; font-size: 14px; margin: 5px 0; }
         .premium-tag {
             background-color: var(--success);
             color: white;
@@ -184,7 +184,6 @@
     let isPremiumUser = localStorage.getItem('isPremium') === 'true';
     let currencySymbol = "£";
 
-    // Auto Country & Currency Scanner
     function detectCurrency() {
         const locale = navigator.language || "en-GB";
         if (locale.includes("US") || locale.includes("en-US")) {
@@ -192,12 +191,12 @@
         } else if (locale.includes("GB") || locale.includes("en-GB")) {
             currencySymbol = "£";
         } else {
-            // Default European regions
             currencySymbol = "€";
         }
         document.querySelectorAll('.currencySymbol').forEach(el => el.innerText = currencySymbol);
     }
 
+    // Set Up Title Labels Based On History
     const hasPassword = localStorage.getItem('userPassword') !== null;
     if (!hasPassword) {
         document.getElementById('authTitle').innerText = "Create Your Password";
@@ -210,14 +209,20 @@
     function handleAuth() {
         const input = document.getElementById('passwordInput').value;
         const error = document.getElementById('authError');
-        if (!input) { error.innerText = "Password cannot be empty!"; return; }
+        if (!input || input.trim() === "") { 
+            error.innerText = "Password cannot be empty!"; 
+            return; 
+        }
 
         if (!localStorage.getItem('userPassword')) {
             localStorage.setItem('userPassword', input);
             unlockDashboard();
         } else {
-            if (input === localStorage.getItem('userPassword')) { unlockDashboard(); } 
-            else { error.innerText = "Incorrect password! Try again."; }
+            if (input === localStorage.getItem('userPassword')) { 
+                unlockDashboard(); 
+            } else { 
+                error.innerText = "Incorrect password! Try again."; 
+            }
         }
     }
 
@@ -269,6 +274,3 @@
         localStorage.setItem('balance', currentBalance);
         document.getElementById('amountInput').value = '';
         updateUI();
-    }
-
-    function simulateAdWatch() {
